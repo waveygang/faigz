@@ -32,7 +32,7 @@ typedef struct {
 } faidx1_t;
 
 // Simple string hash function
-static khint_t str_hash_func(const char *s) {
+static khint_t faigz_str_hash_func(const char *s) {
     khint_t h = 0;
     while (*s) {
         h = (h << 5) - h + *s++;
@@ -40,10 +40,10 @@ static khint_t str_hash_func(const char *s) {
     return h;
 }
 
-// String hash type
-#define kh_str_hash_func(key) str_hash_func(key)
-#define kh_str_hash_equal(a, b) (strcmp((a), (b)) == 0)
-KHASH_INIT(str, kh_cstr_t, faidx1_t, 1, kh_str_hash_func, kh_str_hash_equal)
+// String hash type with unique macro names to avoid collision
+#define kh_faigz_hash_func(key) faigz_str_hash_func(key)
+#define kh_faigz_hash_equal(a, b) (strcmp((a), (b)) == 0)
+KHASH_INIT(str, kh_cstr_t, faidx1_t, 1, kh_faigz_hash_func, kh_faigz_hash_equal)
 
 // Shared metadata structure containing only the indices
 struct faidx_meta_t {
@@ -355,7 +355,7 @@ void faidx_meta_destroy(faidx_meta_t *meta) {
     if (should_free) {
         /* Free all resources */
         if (meta->hash) {
-            kh_destroy(s, meta->hash);
+            kh_destroy(str, meta->hash);
         }
         
         if (meta->name) {
@@ -431,10 +431,10 @@ static int faidx_adjust_position(const faidx_meta_t *meta, int end_adjust,
     if (*p_end_i < *p_beg_i) *p_beg_i = *p_end_i;
     
     if (*p_beg_i < 0) *p_beg_i = 0;
-    else if (val->len <= *p_beg_i) *p_beg_i = val->len;
+    else if ((hts_pos_t)val->len <= *p_beg_i) *p_beg_i = val->len;
     
     if (*p_end_i < 0) *p_end_i = 0;
-    else if (val->len <= *p_end_i) *p_end_i = val->len - end_adjust;
+    else if ((hts_pos_t)val->len <= *p_end_i) *p_end_i = val->len - end_adjust;
     
     return 0;
 }
