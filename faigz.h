@@ -8,10 +8,6 @@
 #include <pthread.h>
 #include <inttypes.h>
 
-/* Add xxhash for string hashing */
-#define XXH_INLINE_ALL
-#define XXH_STATIC_LINKING_ONLY
-#include "htslib/xxhash.h"
 #include "htslib/bgzf.h"
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
@@ -35,8 +31,17 @@ typedef struct {
     uint64_t qual_offset;
 } faidx1_t;
 
+// Simple string hash function
+static khint_t str_hash_func(const char *s) {
+    khint_t h = 0;
+    while (*s) {
+        h = (h << 5) - h + *s++;
+    }
+    return h;
+}
+
 // String hash type
-#define kh_str_hash_func(key) (khint32_t)(XXH32((key), strlen(key), 0))
+#define kh_str_hash_func(key) str_hash_func(key)
 #define kh_str_hash_equal(a, b) (strcmp((a), (b)) == 0)
 KHASH_INIT(str, kh_cstr_t, faidx1_t, 1, kh_str_hash_func, kh_str_hash_equal)
 
@@ -489,7 +494,7 @@ const char *faidx_meta_iseq(const faidx_meta_t *meta, int i) {
 hts_pos_t faidx_meta_seq_len(const faidx_meta_t *meta, const char *seq) {
     if (!meta || !seq) return -1;
     
-    khint_t k = kh_get(s, meta->hash, seq);
+    khint_t k = kh_get(str, meta->hash, seq);
     if (k == kh_end(meta->hash)) return -1;
     
     return kh_val(meta->hash, k).len;
@@ -499,7 +504,7 @@ hts_pos_t faidx_meta_seq_len(const faidx_meta_t *meta, const char *seq) {
 int faidx_meta_has_seq(const faidx_meta_t *meta, const char *seq) {
     if (!meta || !seq) return 0;
     
-    khint_t k = kh_get(s, meta->hash, seq);
+    khint_t k = kh_get(str, meta->hash, seq);
     return (k != kh_end(meta->hash));
 }
 
