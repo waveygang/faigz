@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #define NUM_THREADS 4
 
