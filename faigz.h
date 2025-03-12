@@ -8,14 +8,23 @@
 #include <pthread.h>
 #include <inttypes.h>
 
+/* Add xxhash for string hashing */
+#define XXH_INLINE_ALL
+#define XXH_STATIC_LINKING_ONLY
+#include "htslib/xxhash.h"
 #include "htslib/bgzf.h"
 #include "htslib/faidx.h"
 #include "htslib/hts.h"
 #include "htslib/kstring.h"
+#include "htslib/khash.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// Forward declarations
+typedef struct faidx_meta_t faidx_meta_t;
+typedef struct faidx_reader_t faidx_reader_t;
 
 // Key structures needed for our implementation
 typedef struct {
@@ -26,14 +35,16 @@ typedef struct {
     uint64_t qual_offset;
 } faidx1_t;
 
-// Use khash to maintain a string->faidx1_t mapping
-KHASH_MAP_INIT_STR(s, faidx1_t)
+// String hash type
+#define kh_str_hash_func(key) (khint32_t)(XXH32((key), strlen(key), 0))
+#define kh_str_hash_equal(a, b) (strcmp((a), (b)) == 0)
+KHASH_INIT(str, kh_cstr_t, faidx1_t, 1, kh_str_hash_func, kh_str_hash_equal)
 
 // Shared metadata structure containing only the indices
-typedef struct {
+struct faidx_meta_t {
     int n, m;                     // Sequence count and allocation size
     char **name;                  // Array of sequence names
-    khash_t(s) *hash;            // Hash table mapping names to positions
+    khash_t(str) *hash;          // Hash table mapping names to positions
     enum fai_format_options format; // FAI_FASTA or FAI_FASTQ
     
     // Source file paths
@@ -47,13 +58,13 @@ typedef struct {
     
     // Flag indicating if the source is BGZF compressed
     int is_bgzf;
-} faidx_meta_t;
+};
 
 // Reader structure containing thread-specific data
-typedef struct {
+struct faidx_reader_t {
     faidx_meta_t *meta;          // Shared metadata (not owned)
     faidx_t *fai;                // Thread-local faidx handle
-} faidx_reader_t;
+};
 
 /**
  * Load FASTA/FASTQ index metadata.
@@ -200,7 +211,7 @@ static char *kstrdup(const char *str) {
 
 static int fai_name2id(void *v, const char *ref) {
     faidx_meta_t *meta = (faidx_meta_t*)v;
-    khint_t k = kh_get(s, meta->hash, ref);
+    khint_t k = kh_get(str, meta->hash, ref);
     return k == kh_end(meta->hash) ? -1 : kh_val(meta->hash, k).id;
 }
 
@@ -232,48 +243,52 @@ faidx_meta_t *faidx_meta_load(const char *filename, enum fai_format_options form
     if (pthread_mutex_init(&meta->mutex, NULL) != 0) goto fail;
     
     /* Get basic information from faidx */
-    meta->n = fai_nseq(fai);
+    meta->n = faidx_nseq(fai);
     meta->m = meta->n;  /* We'll allocate exactly what we need */
     meta->format = format;
     meta->ref_count = 1;
-    meta->is_bgzf = bgzf_is_bgzf(fai_bgzf(fai)) == 1;
+    
+    /* Check if file is BGZF compressed */
+    FILE *fp = fopen(filename, "rb");
+    if (fp) {
+        unsigned char magic[2];
+        if (fread(magic, 1, 2, fp) == 2) {
+            meta->is_bgzf = (magic[0] == 0x1f && magic[1] == 0x8b);
+        }
+        fclose(fp);
+    }
     
     /* Copy sequence names */
     meta->name = (char**)malloc(meta->m * sizeof(char*));
     if (!meta->name) goto fail;
     
     /* Create hash table */
-    meta->hash = kh_init(s);
+    meta->hash = kh_init(str);
     if (!meta->hash) goto fail;
     
     /* Populate names and hash table with sequence info */
     for (int i = 0; i < meta->n; i++) {
-        const char *seq_name = fai_name(fai, i);
+        const char *seq_name = faidx_iseq(fai, i);
         meta->name[i] = kstrdup(seq_name);
         if (!meta->name[i]) goto fail;
         
         faidx1_t val;
         val.id = i;
-        val.len = fai_seq_len(fai, seq_name);
+        val.len = faidx_seq_len(fai, seq_name);
         
-        /* Get line length information - can use faidx API for this */
-        int line_len, line_blen;
-        fai_get_line_length(fai, seq_name, &line_len, &line_blen);
-        val.line_len = line_len;
-        val.line_blen = line_blen;
+        /* Get line length - this information is not directly accessible from API 
+           Use reasonable defaults if needed */
+        val.line_len = 60 + 1;  /* Default line length + newline */
+        val.line_blen = 60;     /* Default bases per line */
+        
+        /* Estimated offsets - not accurate but we don't need them since we use faidx API */
+        val.seq_offset = 0;
+        val.qual_offset = 0;
         
         /* Build our own lookup table */
         int absent;
-        khint_t k = kh_put(s, meta->hash, meta->name[i], &absent);
+        khint_t k = kh_put(str, meta->hash, meta->name[i], &absent);
         if (absent) {
-            /* Store sequence information */
-            val.seq_offset = fai_seq_offset(fai, seq_name);
-            /* For FASTQ, store quality offset too */
-            if (format == FAI_FASTQ) {
-                val.qual_offset = fai_qual_offset(fai, seq_name);
-            } else {
-                val.qual_offset = 0;
-            }
             kh_val(meta->hash, k) = val;
         }
     }
@@ -293,7 +308,7 @@ faidx_meta_t *faidx_meta_load(const char *filename, enum fai_format_options form
     
 fail:
     if (meta) {
-        if (meta->hash) kh_destroy(s, meta->hash);
+        if (meta->hash) kh_destroy(str, meta->hash);
         if (meta->name) {
             for (int i = 0; i < meta->n; i++) {
                 if (meta->name[i]) free(meta->name[i]);
@@ -397,7 +412,7 @@ static int faidx_adjust_position(const faidx_meta_t *meta, int end_adjust,
     faidx1_t *val;
     
     /* Adjust position */
-    iter = kh_get(s, meta->hash, c_name);
+    iter = kh_get(str, meta->hash, c_name);
     
     if (iter == kh_end(meta->hash)) {
         if (len) *len = -2;
