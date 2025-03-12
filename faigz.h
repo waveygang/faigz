@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 // Key structures needed for our implementation
-typedef struct faidx1_t {
+typedef struct {
     int id;
     uint32_t line_len, line_blen;
     uint64_t len;
@@ -423,6 +423,7 @@ static int faidx_adjust_position(const faidx_meta_t *meta, int end_adjust,
 char *faidx_reader_fetch_seq(faidx_reader_t *reader, const char *c_name,
                           hts_pos_t p_beg_i, hts_pos_t p_end_i, hts_pos_t *len) {
     faidx1_t val;
+    int len_int = 0;
     
     /* Adjust position */
     if (faidx_adjust_position(reader->meta, 1, &val, c_name, &p_beg_i, &p_end_i, len)) {
@@ -430,14 +431,17 @@ char *faidx_reader_fetch_seq(faidx_reader_t *reader, const char *c_name,
     }
     
     /* Use the standard faidx API to fetch the sequence */
-    if (len) *len = p_end_i - p_beg_i + 1;
-    return faidx_fetch_seq(reader->fai, c_name, p_beg_i, p_end_i, len);
+    char *result = faidx_fetch_seq(reader->fai, c_name, (int)p_beg_i, (int)p_end_i, &len_int);
+    
+    if (len) *len = len_int;
+    return result;
 }
 
 /* Fetch quality string */
 char *faidx_reader_fetch_qual(faidx_reader_t *reader, const char *c_name,
                             hts_pos_t p_beg_i, hts_pos_t p_end_i, hts_pos_t *len) {
     faidx1_t val;
+    int len_int = 0;
     
     if (reader->meta->format != FAI_FASTQ) {
         if (len) *len = -2;
@@ -450,8 +454,10 @@ char *faidx_reader_fetch_qual(faidx_reader_t *reader, const char *c_name,
     }
     
     /* Use the standard faidx API to fetch the quality */
-    if (len) *len = p_end_i - p_beg_i + 1;
-    return faidx_fetch_qual(reader->fai, c_name, p_beg_i, p_end_i, len);
+    char *result = faidx_fetch_qual(reader->fai, c_name, (int)p_beg_i, (int)p_end_i, &len_int);
+    
+    if (len) *len = len_int;
+    return result;
 }
 
 /* Get number of sequences */
