@@ -17,29 +17,14 @@ HTSLIB_LIBS := $(shell pkg-config --libs htslib 2>/dev/null || echo "-L/usr/loca
 
 # Sources and targets
 HEADERS = faigz.h
-EXAMPLE_SRC = example.c
-EXAMPLE = example
-TEST_SRC = test.c
-TEST = test
-BENCH_SRC = bench_faigz.c
-BENCH = bench_faigz
+MAIN_SRC = bench_faigz.c
+MAIN = faigz
 
-.PHONY: all clean install test bench uninstall
+.PHONY: all clean install uninstall
 
-all: $(EXAMPLE) $(TEST) $(BENCH)
+all: $(MAIN)
 
-$(EXAMPLE): $(EXAMPLE_SRC) $(HEADERS)
-	$(CC) $(CFLAGS) $(HTSLIB_CFLAGS) -o $@ $< $(HTSLIB_LIBS) $(LDFLAGS)
-
-test: $(TEST)
-	./$(TEST)
-
-$(TEST): $(TEST_SRC) $(HEADERS)
-	$(CC) $(CFLAGS) $(HTSLIB_CFLAGS) -o $@ $< $(HTSLIB_LIBS) $(LDFLAGS)
-
-bench: $(BENCH)
-
-$(BENCH): $(BENCH_SRC) $(HEADERS)
+$(MAIN): $(MAIN_SRC) $(HEADERS)
 	$(CC) $(CFLAGS) $(HTSLIB_CFLAGS) -o $@ $< $(HTSLIB_LIBS) $(LDFLAGS)
 
 install: $(HEADERS)
@@ -52,4 +37,4 @@ uninstall:
 	@echo "Uninstalled faigz.h from $(INCLUDEDIR)"
 
 clean:
-	rm -f $(EXAMPLE) $(TEST) $(BENCH) *.o *.gch
+	rm -f $(MAIN) *.o *.gch
