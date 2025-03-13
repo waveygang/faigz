@@ -185,8 +185,9 @@ void *worker_thread(void *arg) {
         // Write to output file if requested
         if (data->output_fp) {
             pthread_mutex_lock(data->output_mutex);
+            // Convert to 1-based coordinates for output (matching samtools faidx format)
             int write_status = fprintf(data->output_fp, ">%s:%"PRIhts_pos"-%"PRIhts_pos"\n%s\n", 
-                   seq_name, start, end, seq);
+                   seq_name, start + 1, end + 1, seq);
             if (write_status < 0) {
                 fprintf(stderr, "Thread %d: Error writing to output file: %s\n", 
                        data->thread_id, strerror(errno));
@@ -196,7 +197,7 @@ void *worker_thread(void *arg) {
             
             if (data->config->verbose) {
                 printf("Thread %d: Wrote sequence %s:%"PRIhts_pos"-%"PRIhts_pos" to output file\n",
-                      data->thread_id, seq_name, start, end);
+                      data->thread_id, seq_name, start + 1, end + 1);
             }
         }
         
