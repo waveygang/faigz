@@ -177,6 +177,7 @@ void *worker_thread(void *arg) {
             pthread_mutex_lock(data->output_mutex);
             fprintf(data->output_fp, ">%s:%"PRIhts_pos"-%"PRIhts_pos"\n%s\n", 
                    seq_name, start, end, seq);
+            fflush(data->output_fp); // Ensure immediate write to disk
             pthread_mutex_unlock(data->output_mutex);
         }
         
@@ -222,6 +223,11 @@ int main(int argc, char **argv) {
     printf("  Output:      %s\n", config.output_file ? config.output_file : "none");
     printf("  Seed:        %u\n", config.seed);
     printf("  Verbose:     %s\n", config.verbose ? "yes" : "no");
+    
+    // Reminder about output file if not specified
+    if (!config.output_file && config.verbose) {
+        printf("\nNote: No output file specified. Use -o option to write sequences to a file.\n");
+    }
     
     // Load the FASTA index metadata
     meta = faidx_meta_load(config.fasta_file, FAI_FASTA, FAI_CREATE);
