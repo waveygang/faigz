@@ -65,9 +65,31 @@ Include the header in your C/C++ code:
 // Your code here
 ```
 
-## Example
+## Example and Benchmarking
 
 The repository includes an example program that demonstrates how to use the library. It creates multiple threads that share a single index metadata structure but use separate reader instances to access the data.
+
+### Benchmarking
+
+A benchmarking tool is also provided to measure the performance of the library when accessing BGZF-compressed FASTA files concurrently:
+
+```
+Usage: ./bench_faigz [options] <fasta_file>
+Options:
+  -t INT    Number of threads [4]
+  -n INT    Number of sequences to fetch per thread [1000]
+  -l INT    Length of each sequence to fetch [100]
+  -o FILE   Output fetched sequences to file [none]
+  -s INT    Random seed [42]
+  -v        Verbose output
+  -h        Show this help message
+```
+
+Example benchmark command:
+```bash
+# Run benchmark with 8 threads, fetching 5000 sequences per thread
+./bench_faigz -t 8 -n 5000 -l 200 -v path/to/your/genome.fa.gz
+```
 
 ```c
 /* Load the index metadata once */

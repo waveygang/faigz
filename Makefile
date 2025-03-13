@@ -21,10 +21,12 @@ EXAMPLE_SRC = example.c
 EXAMPLE = example
 TEST_SRC = test.c
 TEST = test
+BENCH_SRC = bench_faigz.c
+BENCH = bench_faigz
 
-.PHONY: all clean install test uninstall
+.PHONY: all clean install test bench uninstall
 
-all: $(EXAMPLE)
+all: $(EXAMPLE) $(TEST) $(BENCH)
 
 $(EXAMPLE): $(EXAMPLE_SRC) $(HEADERS)
 	$(CC) $(CFLAGS) $(HTSLIB_CFLAGS) -o $@ $< $(HTSLIB_LIBS) $(LDFLAGS)
@@ -33,6 +35,11 @@ test: $(TEST)
 	./$(TEST)
 
 $(TEST): $(TEST_SRC) $(HEADERS)
+	$(CC) $(CFLAGS) $(HTSLIB_CFLAGS) -o $@ $< $(HTSLIB_LIBS) $(LDFLAGS)
+
+bench: $(BENCH)
+
+$(BENCH): $(BENCH_SRC) $(HEADERS)
 	$(CC) $(CFLAGS) $(HTSLIB_CFLAGS) -o $@ $< $(HTSLIB_LIBS) $(LDFLAGS)
 
 install: $(HEADERS)
@@ -45,4 +52,4 @@ uninstall:
 	@echo "Uninstalled faigz.h from $(INCLUDEDIR)"
 
 clean:
-	rm -f $(EXAMPLE) $(TEST) *.o *.gch
+	rm -f $(EXAMPLE) $(TEST) $(BENCH) *.o *.gch
