@@ -32,7 +32,7 @@ A reentrant implementation of FASTA/BGZF indexing that efficiently shares both F
    cd faigz
    ```
 
-2. Build the example and tests:
+2. Build the benchmark tool:
    ```
    make
    ```
@@ -49,27 +49,11 @@ A reentrant implementation of FASTA/BGZF indexing that efficiently shares both F
    make PREFIX=/your/custom/path install
    ```
 
-4. Run tests with your FASTA file:
-   ```
-   ./test path/to/your/reference.fa
-   ```
-
-## Usage
-
-Include the header in your C/C++ code:
-
-```c
-#define REENTRANT_FAIDX_IMPLEMENTATION  // Include this only once in your project
-#include <faigz.h>
-
-// Your code here
-```
-
 ## Usage
 
 ### Command Line Tool
 
-The `bench_faigz` tool is provided to measure the performance of the library when accessing BGZF-compressed FASTA files concurrently:
+The `bench_faigz` benchmark tool demonstrates the performance of the library when accessing BGZF-compressed FASTA files concurrently:
 
 ```
 Usage: ./bench_faigz [options] <fasta_file>
@@ -91,6 +75,16 @@ Example command:
 
 ### Library Usage
 
+Include the header in your C/C++ code:
+
+```c
+#define REENTRANT_FAIDX_IMPLEMENTATION  // Include this only once in your project
+#include <faigz.h>
+
+// Your code here
+```
+
+Basic usage example:
 ```c
 /* Load the index metadata once */
 faidx_meta_t *meta = faidx_meta_load(fasta_file, FAI_FASTA, FAI_CREATE);

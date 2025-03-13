@@ -28,9 +28,6 @@
 *.i*86
 *.x86_64
 *.hex
-faigz
-example
-test
 bench_faigz
 
 # Debug files
