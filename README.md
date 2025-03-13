@@ -69,10 +69,10 @@ Include the header in your C/C++ code:
 
 ### Command Line Tool
 
-The `faigz` tool is provided to measure the performance of the library when accessing BGZF-compressed FASTA files concurrently:
+The `bench_faigz` tool is provided to measure the performance of the library when accessing BGZF-compressed FASTA files concurrently:
 
 ```
-Usage: ./faigz [options] <fasta_file>
+Usage: ./bench_faigz [options] <fasta_file>
 Options:
   -t INT    Number of threads [4]
   -n INT    Number of sequences to fetch per thread [1000]
@@ -86,7 +86,7 @@ Options:
 Example command:
 ```bash
 # Run with 8 threads, fetching 5000 sequences per thread
-./faigz -t 8 -n 5000 -l 200 -v path/to/your/genome.fa.gz
+./bench_faigz -t 8 -n 5000 -l 200 -v path/to/your/genome.fa.gz
 ```
 
 ### Library Usage

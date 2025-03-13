@@ -18,7 +18,7 @@ HTSLIB_LIBS := $(shell pkg-config --libs htslib 2>/dev/null || echo "-L/usr/loca
 # Sources and targets
 HEADERS = faigz.h
 MAIN_SRC = bench_faigz.c
-MAIN = faigz
+MAIN = bench_faigz
 
 .PHONY: all clean install uninstall
 
