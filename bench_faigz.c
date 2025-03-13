@@ -152,11 +152,21 @@ void *worker_thread(void *arg) {
         }
         
         // Choose a random start position, ensuring we don't go past the end
-        hts_pos_t max_start = total_seq_len - data->config->seq_length;
+        // Adjust sequence length if the sequence is shorter than requested
+        int adjusted_seq_length = data->config->seq_length;
+        if (total_seq_len < adjusted_seq_length) {
+            adjusted_seq_length = total_seq_len;
+            if (data->config->verbose) {
+                printf("Thread %d: Sequence %s is shorter than requested length (%"PRIhts_pos" < %d), adjusting\n",
+                      data->thread_id, seq_name, total_seq_len, data->config->seq_length);
+            }
+        }
+        
+        hts_pos_t max_start = total_seq_len - adjusted_seq_length;
         if (max_start < 0) max_start = 0;
         
-        hts_pos_t start = rand() % (max_start + 1);
-        hts_pos_t end = start + data->config->seq_length - 1;
+        hts_pos_t start = max_start > 0 ? rand() % (max_start + 1) : 0;
+        hts_pos_t end = start + adjusted_seq_length - 1;
         if (end >= total_seq_len) end = total_seq_len - 1;
         
         // Fetch the sequence
@@ -175,10 +185,19 @@ void *worker_thread(void *arg) {
         // Write to output file if requested
         if (data->output_fp) {
             pthread_mutex_lock(data->output_mutex);
-            fprintf(data->output_fp, ">%s:%"PRIhts_pos"-%"PRIhts_pos"\n%s\n", 
+            int write_status = fprintf(data->output_fp, ">%s:%"PRIhts_pos"-%"PRIhts_pos"\n%s\n", 
                    seq_name, start, end, seq);
+            if (write_status < 0) {
+                fprintf(stderr, "Thread %d: Error writing to output file: %s\n", 
+                       data->thread_id, strerror(errno));
+            }
             fflush(data->output_fp); // Ensure immediate write to disk
             pthread_mutex_unlock(data->output_mutex);
+            
+            if (data->config->verbose) {
+                printf("Thread %d: Wrote sequence %s:%"PRIhts_pos"-%"PRIhts_pos" to output file\n",
+                      data->thread_id, seq_name, start, end);
+            }
         }
         
         free(seq);
@@ -224,9 +243,13 @@ int main(int argc, char **argv) {
     printf("  Seed:        %u\n", config.seed);
     printf("  Verbose:     %s\n", config.verbose ? "yes" : "no");
     
-    // Reminder about output file if not specified
-    if (!config.output_file && config.verbose) {
-        printf("\nNote: No output file specified. Use -o option to write sequences to a file.\n");
+    // Output file handling message
+    if (!config.output_file) {
+        if (config.verbose) {
+            printf("\nNote: No output file specified. Use -o option to write sequences to a file.\n");
+        }
+    } else {
+        printf("Output file: %s will be created/overwritten\n", config.output_file);
     }
     
     // Load the FASTA index metadata
@@ -308,7 +331,18 @@ int main(int argc, char **argv) {
     if (output_fp) {
         fclose(output_fp);
         pthread_mutex_destroy(&output_mutex);
-        printf("Sequences written to %s\n", config.output_file);
+        
+        // Check if output file was created successfully
+        FILE *check_fp = fopen(config.output_file, "r");
+        if (check_fp) {
+            fseek(check_fp, 0, SEEK_END);
+            long file_size = ftell(check_fp);
+            fclose(check_fp);
+            printf("Sequences written to %s (size: %ld bytes)\n", config.output_file, file_size);
+        } else {
+            fprintf(stderr, "Warning: Cannot verify output file %s: %s\n", 
+                   config.output_file, strerror(errno));
+        }
     }
     
     return 0;
